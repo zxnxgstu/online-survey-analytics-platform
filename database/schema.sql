@@ -37,7 +37,13 @@ CREATE TABLE `categories` (
 --
 -- Дамп даних таблиці `categories`
 --
-
+INSERT INTO `categories` (`name`) VALUES
+('Technology'),
+('Work & Career'),
+('Education'),
+('Lifestyle'),
+('Entertainment'),
+('Other');
 -- --------------------------------------------------------
 
 --

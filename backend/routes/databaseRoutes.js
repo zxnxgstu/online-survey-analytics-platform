@@ -78,7 +78,15 @@ router.get('/stats', async (req, res) => {
             Poll.getAllPolls(), Vote.getAllVotes(), Vote.getAllTextResponses(), Vote.getAllRatingResponses(), User.getAllUsers()
         ]);
         const locale = String(req.headers['accept-language'] || '').toLowerCase().startsWith('en') ? 'en-US' : 'uk-UA';
-        const dayKey = (date) => new Date(date).toISOString().split('T')[0];
+        const dayKey = (value) => {
+        const date = new Date(value);
+
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+
+        return `${year}-${month}-${day}`;
+};
         const today = dayKey(new Date());
 
         const activePolls = polls.filter((poll) => poll.status === 'active');
