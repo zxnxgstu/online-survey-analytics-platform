@@ -5,49 +5,58 @@ if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET is not configured');
 }
 
-exports.verifyToken = async (req, res, next) => {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    if(!token) {
-        return res.status(401).json({ message: 'Токен відсутній'});
+const generateToken = (user) => jwt.sign(
+    { id: user.id, username: user.username, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES_IN || '4h' }
+);
+
+const verifyToken = async (req, res, next) => {
+    const authHeader = req.header('Authorization') || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+    if (!token) {
+        return res.status(401).json({ message: 'Токен відсутній' });
     }
+
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
-        let user = await User.getUserById(req.user.id);
-        if(!user)
-        {
-            return res.status(401).json({ message: 'Такого користувача не існує'})
-        }
-        if (user.role !== decoded.role || user.username !== decoded.username) {
-            const newToken = this.generateToken(user);
-            res.setHeader('Access-Control-Expose-Headers', 'X-New-Token');
-            res.set('X-New-Token', newToken);
-            req.user = { id: user.id, username: user.username, role: user.role };
-        }
-        next()
-    } catch (err){
-        res.status(401).json({ message: 'Недійсний токен'})
-    }
-}
+        const user = await User.getUserById(decoded.id);
 
-exports.verifyAdvancedUser = (req, res, next) => {
-    this.verifyToken(req, res, () => {
-        if (req.user.role !== 'advanced' && req.user.role !== 'admin') {
+        if (!user) {
+            return res.status(401).json({ message: 'Такого користувача не існує' });
+        }
+
+        req.user = { id: user.id, username: user.username, role: user.role };
+
+        if (user.role !== decoded.role || user.username !== decoded.username) {
+            const newToken = generateToken(user);
+            res.setHeader('Access-Control-Expose-Headers', 'X-New-Token');
+            res.setHeader('X-New-Token', newToken);
+        }
+
+        return next();
+    } catch (err) {
+        return res.status(401).json({ message: 'Недійсний або прострочений токен' });
+    }
+};
+
+const verifyAdvancedUser = (req, res, next) => {
+    verifyToken(req, res, () => {
+        if (!['advanced', 'admin'].includes(req.user.role)) {
             return res.status(403).json({ message: 'Недостатньо прав' });
         }
-        next();
+        return next();
     });
 };
 
-exports.verifyAdmin = (req, res, next) => {
-    this.verifyToken(req, res, () => {
+const verifyAdmin = (req, res, next) => {
+    verifyToken(req, res, () => {
         if (req.user.role !== 'admin') {
             return res.status(403).json({ message: 'Недостатньо прав' });
         }
-        next();
+        return next();
     });
 };
 
-exports.generateToken = (user) => {
-    return jwt.sign({ id: user.id, username: user.username, role: user.role }, process.env.JWT_SECRET, { expiresIn: '4h' });
-};
+module.exports = { generateToken, verifyToken, verifyAdvancedUser, verifyAdmin };

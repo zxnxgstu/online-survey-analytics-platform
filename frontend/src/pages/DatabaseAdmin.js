@@ -17,7 +17,7 @@ const DatabaseAdmin = () => {
             text_responses: 0,
             poll_moderation: 0
         },
-        lastBackup: "Невідомо"
+        lastBackup: "N/A"
     });
     const [tableData, setTableData] = useState({
         polls: [],
@@ -51,7 +51,7 @@ const DatabaseAdmin = () => {
     useEffect(() => {
         const fetchDbStats = async () => {
             try {
-                const response = await axios.get("http://localhost:5000/database/db-stats", {
+                const response = await axios.get("/database/db-stats", {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setDbStats(response.data);
@@ -64,7 +64,7 @@ const DatabaseAdmin = () => {
             try {
                 const tables = ["users", "polls", "votes", "categories", "poll_options", "rating_responses", "text_responses", "poll_moderation"];
                 const promises = tables.map(table =>
-                    axios.get(`http://localhost:5000/database/${table}`, {
+                    axios.get(`/database/${table}`, {
                         headers: { Authorization: `Bearer ${token}` }
                     })
                 );
@@ -137,7 +137,6 @@ const DatabaseAdmin = () => {
 
                 // Пошук по всіх полях
                 const lowerTerm = term.toLowerCase();
-                const numericTerm = isNaN(term) ? null : parseFloat(term);
 
                 if (table === "polls") {
                     return (
@@ -234,7 +233,7 @@ const DatabaseAdmin = () => {
         }
         try {
             const response = await axios.post(
-                "http://localhost:5000/admin/sql-query",
+                "/database/sql-query",
                 { query: sqlQuery },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -308,7 +307,7 @@ const DatabaseAdmin = () => {
                     <div className="card bg-light">
                         <div className="card-body">
                             <h5 className="card-title text-muted">Остання резервна копія</h5>
-                            <p className="card-text text-warning">{dbStats.lastBackup}</p>
+                            <p className="card-text text-warning">{dbStats.lastBackup || 'N/A'}</p>
                         </div>
                     </div>
                 </div>

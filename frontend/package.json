@@ -44,5 +44,7 @@
   },
   "devDependencies": {
     "eslint-config-react-app": "^7.0.1"
-  }
+  },
+  "description": "React client for the Online Survey & Analytics Platform",
+  "author": "Nikita Savchuk"
 }

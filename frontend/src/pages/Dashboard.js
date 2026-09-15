@@ -6,7 +6,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, L
 import { toast } from 'react-toastify';
 
 const Dashboard = () => {
-    const { user, isAuthenticated, isLoading, logout } = useAuth();
+    const { isAuthenticated, isLoading } = useAuth();
     const navigate = useNavigate();
     const [polls, setPolls] = useState([]);
     const [pendingPolls, setPendingPolls] = useState([]);
@@ -20,7 +20,6 @@ const Dashboard = () => {
         popularPoll: null,
         weeklyActivity: []
     });
-    const [searchResults, setSearchResults] = useState(null);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(true);
@@ -40,18 +39,18 @@ const Dashboard = () => {
         const fetchData = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const pollsResponse = await axios.get('http://localhost:5000/database/polls', {
+                const pollsResponse = await axios.get('/database/polls', {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 setPolls(pollsResponse.data);
 
-                const pendingPollsResponse = await axios.get('http://localhost:5000/database/polls', {
+                const pendingPollsResponse = await axios.get('/database/polls', {
                     params: { status: 'preparation' },
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 setPendingPolls(pendingPollsResponse.data);
 
-                const statsResponse = await axios.get('http://localhost:5000/database/stats', {
+                const statsResponse = await axios.get('/database/stats', {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 setStats(statsResponse.data);
@@ -68,7 +67,7 @@ const Dashboard = () => {
         const fetchRoleUpgradeRequests = async () => {
             const token = localStorage.getItem('token');
             try {
-                const response = await axios.get('http://localhost:5000/users/role-upgrade-requests', {
+                const response = await axios.get('/users/role-upgrade-requests', {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 setRoleUpgradeRequests(response.data);
@@ -93,7 +92,7 @@ const Dashboard = () => {
             try {
                 const token = localStorage.getItem('token');
                 await axios.post(
-                    `http://localhost:5000/database/polls/${pollId}/close`,
+                    `/database/polls/${pollId}/close`,
                     {},
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
@@ -114,7 +113,7 @@ const Dashboard = () => {
         if (window.confirm('Ви впевнені, що хочете видалити це опитування?')) {
             try {
                 const token = localStorage.getItem('token');
-                await axios.delete(`http://localhost:5000/database/polls/${pollId}`, {
+                await axios.delete(`/database/polls/${pollId}`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 setPolls((prevPolls) => prevPolls.filter((poll) => poll.id !== pollId));
@@ -132,7 +131,7 @@ const Dashboard = () => {
             try {
                 const token = localStorage.getItem('token');
                 await axios.post(
-                    `http://localhost:5000/database/polls/${pollId}/approve`,
+                    `/database/polls/${pollId}/approve`,
                     {},
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
@@ -155,7 +154,7 @@ const Dashboard = () => {
             try {
                 const token = localStorage.getItem('token');
                 await axios.post(
-                    `http://localhost:5000/database/polls/${pollId}/reject`,
+                    `/database/polls/${pollId}/reject`,
                     { comment },
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
@@ -180,7 +179,7 @@ const Dashboard = () => {
         if (window.confirm('Ви впевнені, що хочете схвалити цю заявку?')) {
             try {
                 const token = localStorage.getItem('token');
-                await axios.put(`http://localhost:5000/users/role-upgrade-request/${requestId}/approve`, {}, {
+                await axios.put(`/users/role-upgrade-request/${requestId}/approve`, {}, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 setRoleUpgradeRequests((prev) => prev.filter((request) => request.id !== requestId));
@@ -195,7 +194,7 @@ const Dashboard = () => {
     const handleRejectRequest = async (requestId, comment) => {
         try {
             const token = localStorage.getItem('token');
-            await axios.put(`http://localhost:5000/users/role-upgrade-request/${requestId}/reject`, { comment }, {
+            await axios.put(`/users/role-upgrade-request/${requestId}/reject`, { comment }, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setRoleUpgradeRequests((prev) => prev.filter((request) => request.id !== requestId));
@@ -236,7 +235,6 @@ const Dashboard = () => {
 
                         {error && <div className="alert alert-danger">{error}</div>}
                         {success && <div className="alert alert-success">{success}</div>}
-                        {searchResults && <div className="alert alert-info">{searchResults}</div>}
 
                         {loading ? (
                             <div className="text-center">Завантаження...</div>

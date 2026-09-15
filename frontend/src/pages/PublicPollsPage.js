@@ -1,96 +1,58 @@
-import React, { useEffect, useState } from 'react';
-import axios from '../axiosConfig';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import useAuth from '../hooks/useAuth';
+import axios from '../axiosConfig';
 
 const PublicPollsPage = () => {
-    const { isAuthenticated, isLoading } = useAuth();
     const navigate = useNavigate();
     const [polls, setPolls] = useState([]);
-    const [filteredPolls, setFilteredPolls] = useState([]);
-    const [error, setError] = useState(null);
+    const [categories, setCategories] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
 
-    // Стейти для фільтрів
     const [titleFilter, setTitleFilter] = useState('');
     const [typeFilter, setTypeFilter] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
-    const [categories, setCategories] = useState([]);
 
     useEffect(() => {
-        if (!isLoading && !isAuthenticated) {
-            navigate('/login');
-        }
-    }, [isAuthenticated, isLoading, navigate]);
-
-    useEffect(() => {
-        const fetchCategories = async () => {
+        const load = async () => {
+            setLoading(true);
+            setError('');
             try {
-                const response = await axios.get('http://localhost:5000/polls/categories');
-                setCategories(response.data);
+                const [pollsResponse, categoriesResponse] = await Promise.all([
+                    axios.get('/polls/public'),
+                    axios.get('/polls/categories')
+                ]);
+                setPolls(Array.isArray(pollsResponse.data) ? pollsResponse.data : []);
+                setCategories(Array.isArray(categoriesResponse.data) ? categoriesResponse.data : []);
             } catch (err) {
-                console.error('Помилка завантаження категорій:', err);
-                setError('Не вдалося завантажити категорії');
+                console.error('Unable to load public surveys:', err);
+                setError(err.response?.data?.message || 'Не вдалося завантажити опитування');
+            } finally {
+                setLoading(false);
             }
         };
-        fetchCategories();
+
+        load();
     }, []);
 
-    useEffect(() => {
-        const fetchPolls = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                const response = await axios.get('http://localhost:5000/polls/public', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                setPolls(response.data);
-                setFilteredPolls(response.data);  // Спочатку відображаємо всі опитування
-            } catch (err) {
-                console.error('Помилка завантаження опитувань:', err);
-                setError('Не вдалося завантажити опитування');
-            }
-        };
+    const filteredPolls = useMemo(() => polls.filter((poll) => {
+        const matchesTitle = !titleFilter ||
+            (poll.title || '').toLowerCase().includes(titleFilter.toLowerCase());
+        const matchesType = !typeFilter || poll.type === typeFilter;
+        const matchesCategory = !categoryFilter || poll.category_name === categoryFilter;
+        return matchesTitle && matchesType && matchesCategory;
+    }), [polls, titleFilter, typeFilter, categoryFilter]);
 
-        if (isAuthenticated) {
-            fetchPolls();
-        }
-    }, [isAuthenticated]);
-
-    // Функція для фільтрації опитувань
-    const filterPolls = () => {
-        let filtered = polls;
-
-        if (titleFilter) {
-            filtered = filtered.filter(poll =>
-                poll.title.toLowerCase().includes(titleFilter.toLowerCase())
-            );
-        }
-
-        if (typeFilter) {
-            filtered = filtered.filter(poll => poll.type === typeFilter);
-        }
-
-        if (categoryFilter) {
-            filtered = filtered.filter(poll => poll.category_name === categoryFilter);
-        }
-
-        setFilteredPolls(filtered);
-    };
-
-    // Викликаємо фільтрацію, коли фільтри змінюються
-    useEffect(() => {
-        filterPolls();
-    }, [titleFilter, typeFilter, categoryFilter]);
-
-    if (isLoading) return <div className="text-center mt-5">Завантаження...</div>;
-    if (error) return <div className="alert alert-danger mt-5 text-center">{error}</div>;
+    if (loading) return <div className="text-center mt-5">Завантаження...</div>;
 
     return (
         <div className="container mt-4">
             <h2 className="mb-4 text-primary">Доступні публічні опитування</h2>
 
-            {/* Форма фільтрації */}
+            {error && <div className="alert alert-danger">{error}</div>}
+
             <div className="mb-4">
-                <div className="row">
+                <div className="row g-2">
                     <div className="col-md-4">
                         <input
                             type="text"
@@ -121,9 +83,7 @@ const PublicPollsPage = () => {
                         >
                             <option value="">Фільтрувати за категорією</option>
                             {categories.map((category) => (
-                                <option key={category.id} value={category.name}>
-                                    {category.name}
-                                </option>
+                                <option key={category.id} value={category.name}>{category.name}</option>
                             ))}
                         </select>
                     </div>
@@ -133,24 +93,24 @@ const PublicPollsPage = () => {
             <div className="row">
                 {filteredPolls.length === 0 ? (
                     <p>Опитувань поки немає.</p>
-                ) : (
-                    filteredPolls.map((poll) => (
-                        <div className="col-md-6 col-lg-4 mb-3" key={poll.id}>
-                            <div className="card h-100 shadow-sm">
-                                <div className="card-body">
-                                    <h5 className="card-title text-dark">{poll.title}</h5>
-                                    <p className="card-text text-muted p-0 m-0">Тип: {getPollTypeLabel(poll.type)}</p>
-                                    <p className="card-text text-muted m-0">Категорія: {poll.category_name}</p>
-                                    <p className="card-text text-muted mb-2">Автор: <b>{poll.creator_username}</b></p>
-                                    <button className="btn btn-outline-primary mt-2"
-                                            onClick={() => navigate(`/poll/${poll.id}`)}>
-                                        Перейти до опитування
-                                    </button>
-                                </div>
+                ) : filteredPolls.map((poll) => (
+                    <div className="col-md-6 col-lg-4 mb-3" key={poll.id}>
+                        <div className="card h-100 shadow-sm">
+                            <div className="card-body">
+                                <h5 className="card-title text-dark">{poll.title}</h5>
+                                <p className="card-text text-muted p-0 m-0">Тип: {getPollTypeLabel(poll.type)}</p>
+                                <p className="card-text text-muted m-0">Категорія: {poll.category_name || '—'}</p>
+                                <p className="card-text text-muted mb-2">Автор: <b>{poll.creator_username}</b></p>
+                                <button
+                                    className="btn btn-outline-primary mt-2"
+                                    onClick={() => navigate(`/poll/${poll.id}`)}
+                                >
+                                    Перейти до опитування
+                                </button>
                             </div>
                         </div>
-                    ))
-                )}
+                    </div>
+                ))}
             </div>
         </div>
     );
@@ -158,7 +118,7 @@ const PublicPollsPage = () => {
 
 const getPollTypeLabel = (type) => {
     switch (type) {
-        case 'single_choice': return 'Одиничний вибір';
+        case 'single_choice': return 'Одиночний вибір';
         case 'multiple_choice': return 'Множинний вибір';
         case 'text_response': return 'Текстове питання';
         case 'rating_scale': return 'Рейтинг 1–5';

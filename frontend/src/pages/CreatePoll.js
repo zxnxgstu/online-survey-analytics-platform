@@ -19,7 +19,7 @@ const CreatePoll = () => {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const response = await axios.get('http://localhost:5000/polls/categories');
+                const response = await axios.get('/polls/categories');
                 setCategories(response.data);
             } catch (err) {
                 setError('Не вдалося завантажити категорії.');
@@ -82,7 +82,7 @@ const CreatePoll = () => {
         const token = localStorage.getItem('token');
         try {
             await axios.post(
-                'http://localhost:5000/polls/create',
+                '/polls/create',
                 {
                     title,
                     description,

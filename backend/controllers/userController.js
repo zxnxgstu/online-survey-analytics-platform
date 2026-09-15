@@ -1,139 +1,149 @@
 const User = require('../models/User');
 const { generateToken } = require('../config/authConfig');
 const bcrypt = require('bcryptjs');
-const {db} = require("../config/dbConfig");
+
+const VALID_ROLES = new Set(['user', 'advanced', 'admin']);
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 exports.updateUserProfile = async (req, res) => {
-    const { username, email, password, userId } = req.body;
-    const currentUserId = req.user.id;
+    const { userId, role } = req.body;
+    const currentUserId = Number(req.user.id);
     const currentUserRole = req.user.role;
-
-    // Визначаємо ID користувача, якого редагуємо
-    const targetUserId = (currentUserRole === 'admin' && userId) ? userId : currentUserId;
+    const targetUserId = currentUserRole === 'admin' && userId ? Number(userId) : currentUserId;
 
     try {
-        // Перевірка на наявність користувача з таким email або username
-        const existingUserByEmail = await User.findByEmail(email);
-        const existingUserByUsername = await User.findByUsername(username);
+        const current = await User.getUserById(targetUserId);
+        if (!current) return res.status(404).json({ message: 'Користувача не знайдено' });
 
-        if (existingUserByEmail && existingUserByEmail.id !== targetUserId) {
-            return res.status(400).json({ message: 'Email вже використовується іншим користувачем' });
+        const username = String(req.body.username ?? current.username).trim();
+        const email = String(req.body.email ?? current.email).trim().toLowerCase();
+        const password = req.body.password ? String(req.body.password) : '';
+
+        if (username.length < 3 || username.length > 50) {
+            return res.status(400).json({ message: 'Ім’я користувача має містити від 3 до 50 символів' });
+        }
+        if (!EMAIL_RE.test(email)) {
+            return res.status(400).json({ message: 'Некоректний email' });
+        }
+        if (password && password.length < 6) {
+            return res.status(400).json({ message: 'Пароль має містити щонайменше 6 символів' });
         }
 
-        if (existingUserByUsername && existingUserByUsername.id !== targetUserId) {
+        const byEmail = await User.findByEmail(email);
+        const byUsername = await User.findByUsername(username);
+        if (byEmail && Number(byEmail.id) !== targetUserId) {
+            return res.status(400).json({ message: 'Email вже використовується іншим користувачем' });
+        }
+        if (byUsername && Number(byUsername.id) !== targetUserId) {
             return res.status(400).json({ message: 'Логін вже використовується іншим користувачем' });
         }
 
-        if(!username || !email){
-            return res.status(400).json({ message: 'Логін та Email обов\'язкові для заповнення' });
+        let hashedPassword;
+        if (password) hashedPassword = await bcrypt.hash(password, 10);
+
+        let targetRole;
+        if (currentUserRole === 'admin' && role !== undefined) {
+            if (!VALID_ROLES.has(role)) return res.status(400).json({ message: 'Недійсна роль користувача' });
+            targetRole = role;
         }
 
-        let hashedPassword = undefined;
-        // Якщо пароль був переданий, хешуємо його
-        if (password) {
-            const salt = await bcrypt.genSalt(10);
-            hashedPassword = await bcrypt.hash(password, salt);
-        }
-
-        // Оновлюємо профіль користувача
-        const updatedUser = await User.updateProfile(targetUserId, username, email, hashedPassword);
-        const user = await User.getUserById(targetUserId);  // Отримуємо оновлені дані користувача з БД
-
-        // Генерація нового токена з оновленими даними
-        const token = generateToken({ id: user.id, username: user.username, role: user.role || 'user' });
-        // Повертаємо оновленого користувача
-        res.json({ message: 'Профіль оновлено успішно', user: updatedUser, token });
+        const updatedUser = await User.updateProfile(targetUserId, username, email, hashedPassword, targetRole);
+        const response = { message: 'Профіль оновлено успішно', user: updatedUser };
+        if (targetUserId === currentUserId) response.token = generateToken(updatedUser);
+        return res.json(response);
     } catch (err) {
-        res.status(500).json({ message: 'Помилка оновлення профіля', error: err.message });
+        console.error('Profile update error:', err);
+        return res.status(500).json({ message: 'Помилка оновлення профілю' });
     }
 };
 
 exports.getUserProfile = async (req, res) => {
-    const userId = req.user.id;
-
     try {
-        const user = await User.getUserById(userId);
-        res.json(user);
+        const user = await User.getUserById(req.user.id);
+        if (!user) return res.status(404).json({ message: 'Користувача не знайдено' });
+        return res.json(user);
     } catch (err) {
-        res.status(500).json({ message: 'Помилка отримання профілю користувача', error: err });
+        return res.status(500).json({ message: 'Помилка отримання профілю користувача' });
     }
 };
 
 exports.getAllUsers = async (req, res) => {
-
     try {
-        const users = await User.getAllUsers();
-        res.json(users);
+        return res.json(await User.getAllUsers());
     } catch (err) {
-        res.status(500).json({ message: 'Помилка отримання профілю користувача', error: err });
+        return res.status(500).json({ message: 'Помилка отримання користувачів' });
     }
 };
 
 exports.deleteUser = async (req, res) => {
-    const { userId } = req.params;
-
+    const targetUserId = Number(req.params.userId);
     try {
-        if(userId !== req.user.id) {
-            if(req.user.role !== "admin") return res.status(403).json({ message: 'Ви не можете видалити іншого користувача'});
+        if (!Number.isInteger(targetUserId)) return res.status(400).json({ message: 'Некоректний ID користувача' });
+        if (targetUserId !== Number(req.user.id) && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Ви не можете видалити іншого користувача' });
         }
-
-        await User.deleteUser(userId);
-
-        res.status(200).json({ message: 'Користувача успішно видалено разом з усіма його даними.' });
+        const target = await User.getUserById(targetUserId);
+        if (!target) return res.status(404).json({ message: 'Користувача не знайдено' });
+        await User.deleteUser(targetUserId);
+        return res.json({ message: 'Користувача успішно видалено разом з усіма його даними.' });
     } catch (err) {
-        res.status(500).json({ message: 'Помилка видалення користувача', error: err.message });
+        return res.status(500).json({ message: 'Помилка видалення користувача', error: err.message });
     }
 };
 
 exports.createRequestPrivilege = async (req, res) => {
     try {
-        const { comment } = req.body;
-        await User.createPrivilegeRequest(req.user.id, comment);
-        res.json({ message: 'Заявка успішно подана' });
+        if (req.user.role !== 'user') {
+            return res.status(400).json({ message: 'Ваш акаунт уже має розширені права' });
+        }
+        const last = await User.getLastRequestByUserId(req.user.id);
+        if (last?.status === 'pending') {
+            return res.status(409).json({ message: 'У вас вже є заявка на розгляді' });
+        }
+        await User.createPrivilegeRequest(req.user.id, String(req.body.comment || '').trim());
+        return res.status(201).json({ message: 'Заявка успішно подана' });
     } catch (err) {
-        res.status(500).json({ message: 'Помилка подання заявки' });
+        return res.status(500).json({ message: 'Помилка подання заявки' });
     }
 };
 
 exports.getLastRequestByUserId = async (req, res) => {
     try {
-        const request = await User.getLastRequestByUserId(req.user.id);
-        res.json(request || null);
+        return res.json((await User.getLastRequestByUserId(req.user.id)) || null);
     } catch (err) {
-        res.status(500).json({ message: 'Помилка отримання статусу заявки' });
+        return res.status(500).json({ message: 'Помилка отримання статусу заявки' });
     }
-}
+};
 
 exports.getRequests = async (req, res) => {
     try {
-        const requests = await User.getAllPendingPrivilegeRequests();
-        res.json(requests);
+        return res.json(await User.getAllPendingPrivilegeRequests());
     } catch (err) {
-        res.status(500).json({ message: 'Помилка отримання заявок' });
+        return res.status(500).json({ message: 'Помилка отримання заявок' });
     }
-}
+};
 
 exports.rejectRequestPrivilege = async (req, res) => {
     try {
-        const { id } = req.params;
-        const { comment } = req.body;
-        await User.rejectPrivilegeRequest(id, req.user.id, comment);
-        res.json({ message: 'Заявка відхилена' });
+        const request = await User.getPrivilegeRequestById(req.params.id);
+        if (!request) return res.status(404).json({ message: 'Заявку не знайдено' });
+        if (request.status !== 'pending') return res.status(409).json({ message: 'Заявку вже оброблено' });
+        await User.rejectPrivilegeRequest(req.params.id, req.user.id, String(req.body.comment || '').trim());
+        return res.json({ message: 'Заявка відхилена' });
     } catch (err) {
-        res.status(500).json({ message: 'Помилка відхилення заявки' });
+        return res.status(500).json({ message: 'Помилка відхилення заявки' });
     }
 };
 
 exports.approveRequestPrivilege = async (req, res) => {
     try {
-        const { id } = req.params;
-        await User.approvePrivilegeRequest(id, req.user.id);
-
-        const request = await User.getPrivilegeRequestById(id);
-        await User.updateProfile(request[0].user_id, null, null, null,"advanced");
-
-        res.json({ message: 'Заявка схвалена' });
+        const request = await User.getPrivilegeRequestById(req.params.id);
+        if (!request) return res.status(404).json({ message: 'Заявку не знайдено' });
+        if (request.status !== 'pending') return res.status(409).json({ message: 'Заявку вже оброблено' });
+        await User.approvePrivilegeRequest(req.params.id, req.user.id);
+        await User.setRole(request.user_id, 'advanced');
+        return res.json({ message: 'Заявка схвалена' });
     } catch (err) {
-        res.status(500).json({ message: 'Помилка схвалення заявки' });
+        return res.status(500).json({ message: 'Помилка схвалення заявки' });
     }
 };

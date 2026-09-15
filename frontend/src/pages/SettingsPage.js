@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 
 const SettingsPage = () => {
-    const { user, setUser, login, isLoading, isAuthenticated } = useAuth();
+    const { user, login, logout, isLoading, isAuthenticated } = useAuth();
     const [username, setUserName] = useState('');
     const [email, setEmail] = useState('');
     const [role, setRole] = useState('');
@@ -31,7 +31,7 @@ const SettingsPage = () => {
         const fetchProfile = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const response = await axios.get('http://localhost:5000/users/profile', {
+                const response = await axios.get('/users/profile', {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 setUserName(response.data.username);
@@ -49,7 +49,7 @@ const SettingsPage = () => {
         const fetchRequestStatus = async () => {
             const token = localStorage.getItem('token');
             try {
-                const response = await axios.get('http://localhost:5000/users/role-upgrade-request', {
+                const response = await axios.get('/users/role-upgrade-request', {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 setRequestStatus(response.data);
@@ -72,7 +72,7 @@ const SettingsPage = () => {
             const updatedData = { username, email };
             if (password) updatedData.password = password;
 
-            const response = await axios.put('http://localhost:5000/users/update', updatedData, {
+            const response = await axios.put('/users/update', updatedData, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
             });
 
@@ -97,14 +97,14 @@ const SettingsPage = () => {
         const token = localStorage.getItem('token');
         try {
             await axios.post(
-                'http://localhost:5000/users/role-upgrade-request',
+                '/users/role-upgrade-request',
                 { comment: upgradeComment },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             toast.success('Заявка на підвищення прав подана!');
             setUpgradeComment('');
             // Оновлюємо статус заявки (припускаємо, що бекенд повертає статус)
-            const response = await axios.get('http://localhost:5000/users/role-upgrade-request', {
+            const response = await axios.get('/users/role-upgrade-request', {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setRequestStatus(response.data);
@@ -121,13 +121,12 @@ const SettingsPage = () => {
             try {
                 const token = localStorage.getItem('token');
                 const userId = JSON.parse(atob(token.split('.')[1])).id;
-                const response = await axios.delete(`http://localhost:5000/users/${userId}`, {
+                const response = await axios.delete(`/users/${userId}`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
 
                 if (response.status === 200) {
-                    localStorage.removeItem('token');
-                    setUser(null);
+                    logout();
                     navigate('/');
                     toast.success('Акаунт успішно видалено!');
                 } else {

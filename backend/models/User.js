@@ -1,157 +1,120 @@
-const {db} = require('../config/dbConfig');
+const { db } = require('../config/dbConfig');
+
+const promiseQuery = (sql, params = []) => db.promise().query(sql, params).then(([rows]) => rows);
 
 const User = {
-    create: (username, email, password, role) => {
-        return new Promise((resolve, reject) => {
-            db.query('INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)', [username, email, password, role || 'user'], (err, results) => {
-                if (err) reject(err);
-                resolve(results);
-            });
-        });
+    create: async (username, email, password) => {
+        const [result] = await db.promise().query(
+            'INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)',
+            [username, email, password, 'user']
+        );
+        return result;
     },
 
-    findByUsername: (username) => {
-        return new Promise((resolve, reject) => {
-            db.query('SELECT * FROM users WHERE username = ?', [username], (err, results) => {
-                if (err) reject(err);
-                resolve(results[0]);
-            });
-        });
+    findByUsername: async (username) => {
+        const rows = await promiseQuery('SELECT * FROM users WHERE username = ? LIMIT 1', [username]);
+        return rows[0];
     },
 
-    findByEmail: (email) => {
-        return new Promise((resolve, reject) => {
-            db.query('SELECT * FROM users WHERE email = ?', [email], (err, results) => {
-                if (err) reject(err);
-                resolve(results[0]);
-            });
-        });
+    findByEmail: async (email) => {
+        const rows = await promiseQuery('SELECT * FROM users WHERE email = ? LIMIT 1', [email]);
+        return rows[0];
     },
 
+    updateProfile: async (userId, username, email, password, role) => {
+        const sets = [];
+        const params = [];
 
-    updateProfile: (userId, username, email, password, role) => {
-        return new Promise((resolve, reject) => {
-            let query = '';
-            let params = [];
+        if (username !== undefined && username !== null) {
+            sets.push('username = ?');
+            params.push(username);
+        }
+        if (email !== undefined && email !== null) {
+            sets.push('email = ?');
+            params.push(email);
+        }
+        if (password) {
+            sets.push('password = ?');
+            params.push(password);
+        }
+        if (role) {
+            sets.push('role = ?');
+            params.push(role);
+        }
 
-            // Якщо пароль передано, то оновлюємо і його
-            if (password) {
-                query = 'UPDATE users SET username = ?, email = ?, password = ? WHERE id = ?';
-                params = [username, email, password, userId];
-            }
-            else if (role) {
-                query = 'UPDATE users SET role = ? WHERE id = ?';
-                params = [role, userId];
-            }
-            else {
-                // Якщо пароль не змінюється, оновлюємо лише username та email
-                query = 'UPDATE users SET username = ?, email = ? WHERE id = ?';
-                params = [username, email, userId];
-            }
+        if (sets.length > 0) {
+            params.push(userId);
+            await db.promise().query(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`, params);
+        }
 
-            // Виконуємо оновлення в базі даних
-            db.query(query, params, (err, results) => {
-                if (err) return reject(err);
-
-                // Після оновлення отримуємо дані користувача з бази
-                db.query('SELECT id, username, email, created_at, role FROM users WHERE id = ?', [userId], (err, rows) => {
-                    if (err) return reject(err);
-
-                    // Повертаємо оновленого користувача
-                    resolve(rows[0]);  // Повертаємо перший рядок, оскільки `id` унікальний
-                });
-            });
-        });
+        return User.getUserById(userId);
     },
 
-
-    getUserById: (userId) => {
-        return new Promise((resolve, reject) => {
-            db.query('SELECT id, username, email, role, created_at, updated_at FROM users WHERE id = ?', [userId], (err, results) => {
-                if (err) reject(err);
-                resolve(results[0]);
-            });
-        });
+    setRole: async (userId, role) => {
+        await db.promise().query('UPDATE users SET role = ? WHERE id = ?', [role, userId]);
+        return User.getUserById(userId);
     },
 
-    getAllUsers: () => {
-        return new Promise((resolve, reject) => {
-            db.query('SELECT * FROM users', [], (err, results) => {
-                if (err) reject(err);
-                resolve(results);
-            });
-        });
+    getUserById: async (userId) => {
+        const rows = await promiseQuery(
+            'SELECT id, username, email, role, created_at, updated_at FROM users WHERE id = ? LIMIT 1',
+            [userId]
+        );
+        return rows[0];
     },
 
-    deleteUser: (userId) => {
-        return new Promise((resolve, reject) => {
+    getAllUsers: () => promiseQuery(
+        'SELECT id, username, email, role, created_at, updated_at FROM users ORDER BY created_at DESC'
+    ),
 
-            // Видалення користувача
-            db.query('DELETE FROM users WHERE id = ?', [userId], (err, result) => {
-                if (err) return reject(err);
-                resolve(result);  // Якщо все добре, повертаємо результат
-            });
-        });
+    deleteUser: async (userId) => {
+        const [result] = await db.promise().query('DELETE FROM users WHERE id = ?', [userId]);
+        return result;
     },
 
-     getLastRequestByUserId: (userId) => {
-         return new Promise((resolve, reject) => {
-             db.query('SELECT * FROM role_upgrade_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 1', [userId], (err, results) => {
-                 if (err) reject(err);
-                 resolve(results[0]);
-             });
-         });
+    getLastRequestByUserId: async (userId) => {
+        const rows = await promiseQuery(
+            'SELECT * FROM role_upgrade_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 1',
+            [userId]
+        );
+        return rows[0];
     },
 
-    createPrivilegeRequest: (userId, comment) => {
-        return new Promise((resolve, reject) => {
-            db.query('INSERT INTO role_upgrade_requests (user_id, user_comment) VALUES (?, ?)', [userId, comment], (err, results) => {
-                if (err) reject(err);
-                resolve(results);
-            });
-        });
+    createPrivilegeRequest: async (userId, comment) => {
+        const [result] = await db.promise().query(
+            'INSERT INTO role_upgrade_requests (user_id, user_comment) VALUES (?, ?)',
+            [userId, comment || null]
+        );
+        return result;
     },
 
-     getAllPendingPrivilegeRequests: () => {
-        return new Promise((resolve, reject) => {
-            const query = `
-                        SELECT r.*, u.username as user_username
-                        FROM role_upgrade_requests r
-                        JOIN users u ON r.user_id = u.id
-                        WHERE r.status = 'pending'
-                    `;
-            db.query(query, [], (err, results) => {
-                if (err) reject(err);
-                resolve(results);
-            });
-        });
+    getAllPendingPrivilegeRequests: () => promiseQuery(`
+        SELECT r.*, u.username AS user_username
+        FROM role_upgrade_requests r
+        JOIN users u ON r.user_id = u.id
+        WHERE r.status = 'pending'
+        ORDER BY r.created_at ASC
+    `),
+
+    approvePrivilegeRequest: async (requestId, adminId) => {
+        const [result] = await db.promise().query(
+            "UPDATE role_upgrade_requests SET status = 'approved', admin_id = ? WHERE id = ? AND status = 'pending'",
+            [adminId, requestId]
+        );
+        return result;
     },
 
-    approvePrivilegeRequest: (requestId, adminId) => {
-        return new Promise((resolve, reject) => {
-            db.query('UPDATE role_upgrade_requests SET status = "approved", admin_id = ? WHERE id = ?', [adminId, requestId], (err, results) => {
-                if (err) reject(err);
-                resolve(results);
-            });
-        });
+    rejectPrivilegeRequest: async (requestId, adminId, comment) => {
+        const [result] = await db.promise().query(
+            "UPDATE role_upgrade_requests SET status = 'rejected', admin_id = ?, admin_comment = ? WHERE id = ? AND status = 'pending'",
+            [adminId, comment || null, requestId]
+        );
+        return result;
     },
 
-    rejectPrivilegeRequest: (requestId, adminId, comment) => {
-        return new Promise((resolve, reject) => {
-            db.query('UPDATE role_upgrade_requests SET status = "rejected", admin_id = ?, admin_comment = ? WHERE id = ?', [adminId, comment, requestId], (err, results) => {
-                if (err) reject(err);
-                resolve(results);
-            });
-        });
-    },
-
-    getPrivilegeRequestById: (requestId) => {
-        return new Promise((resolve, reject) => {
-            db.query('SELECT * FROM role_upgrade_requests WHERE id = ?', [requestId], (err, results) => {
-                if (err) reject(err);
-                resolve(results);
-            });
-        });
+    getPrivilegeRequestById: async (requestId) => {
+        const rows = await promiseQuery('SELECT * FROM role_upgrade_requests WHERE id = ? LIMIT 1', [requestId]);
+        return rows[0];
     },
 };
 

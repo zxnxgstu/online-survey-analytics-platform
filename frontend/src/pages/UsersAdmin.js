@@ -20,7 +20,7 @@ const UsersAdmin = () => {
     useEffect(() => {
         const fetchUsers = async () => {
             try {
-                const response = await axios.get('http://localhost:5000/users', {
+                const response = await axios.get('/users', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setUsers(response.data);
@@ -65,7 +65,7 @@ const UsersAdmin = () => {
     const deleteUser = async (userId) => {
         if (window.confirm('Ви впевнені, що хочете видалити цього користувача?')) {
             try {
-                await axios.delete(`http://localhost:5000/users/${userId}`, {
+                await axios.delete(`/users/${userId}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setUsers(users.filter(user => user.id !== userId));
@@ -95,7 +95,7 @@ const UsersAdmin = () => {
             }
 
             await axios.put(
-                `http://localhost:5000/users/update`,
+                `/users/update`,
                 updateData,
                 { headers: { Authorization: `Bearer ${token}` } }
             );

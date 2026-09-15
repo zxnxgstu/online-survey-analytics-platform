@@ -7,7 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell } fro
 const PollDetails = () => {
     const { pollId } = useParams();
     const navigate = useNavigate();
-    const { auth, isAuthenticated, isLoading } = useAuth();
+    const { user, isAuthenticated, isLoading } = useAuth();
     const [poll, setPoll] = useState(null);
     const [results, setResults] = useState(null);
     const [alreadyVoted, setAlreadyVoted] = useState(false);
@@ -27,7 +27,7 @@ const PollDetails = () => {
         const fetchPoll = async () => {
             const token = localStorage.getItem("token");
             try {
-                const response = await axios.get(`http://localhost:5000/polls/${pollId}`, {
+                const response = await axios.get(`/polls/${pollId}`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
 
@@ -43,7 +43,7 @@ const PollDetails = () => {
                 if (data.poll.status === 'closed') {
                     setPollStatusMessage("Опитування закрито адміністратором");
                     // Запит на отримання причини відмови
-                    const reasonResponse = await axios.get(`http://localhost:5000/polls/${pollId}/status`, {
+                    const reasonResponse = await axios.get(`/polls/${pollId}/status`, {
                         headers: { Authorization: `Bearer ${token}` },
                     });
                     if (reasonResponse.status === 200 && reasonResponse.data.status) {
@@ -52,7 +52,7 @@ const PollDetails = () => {
                     return;
                 }
 
-                if (data.poll.is_active === 0 && !(auth?.user?.id === data.poll.created_by || auth?.user?.role === 'admin')) {
+                if (data.poll.is_active === 0 && !(Number(user?.id) === Number(data.poll.created_by) || user?.role === 'admin')) {
                     setPollStatusMessage("Опитування деактивовано користувачем");
                     return;
                 }
@@ -70,7 +70,7 @@ const PollDetails = () => {
             }
         };
         fetchPoll();
-    }, [pollId, auth]);
+    }, [pollId, user?.id, user?.role]);
 
 
     // Завантажити результати
@@ -79,7 +79,7 @@ const PollDetails = () => {
         const fetchResults = async () => {
             const token = localStorage.getItem("token");
             try {
-                const response = await axios.get(`http://localhost:5000/polls/${pollId}/results`, {
+                const response = await axios.get(`/polls/${pollId}/results`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 setResults(response.data.results);
@@ -96,7 +96,7 @@ const PollDetails = () => {
         if (poll) {
             fetchResults();
         }
-    }, [pollId, poll]);
+    }, [pollId, poll, pollStatusMessage]);
 
     // Відправка голосу
     const handleSubmit = async e => {
@@ -124,7 +124,7 @@ const PollDetails = () => {
         const token = localStorage.getItem("token");
         try {
             const res = await axios.post(
-                `http://localhost:5000/polls/${pollId}/vote`,
+                `/polls/${pollId}/vote`,
                 body,
                 {
                     headers: {
@@ -133,7 +133,7 @@ const PollDetails = () => {
                 }
             );
 
-            setResults(res.data.results);
+            if (res.data.results !== undefined) setResults(res.data.results);
             setAlreadyVoted(true);
             setUserVote(body.optionId || body.rating || body.text_response); // Зберігаємо відповідь користувача
         } catch (err) {
@@ -217,7 +217,7 @@ const PollDetails = () => {
                                 className="form-check-input"
                                 name="options"
                                 value={opt.id}
-                                required={!poll.type === "multiple_choice" }
+                                required={poll.type !== "multiple_choice"}
                             />
                             <label className="form-check-label">{opt.option_text}</label>
                         </div>

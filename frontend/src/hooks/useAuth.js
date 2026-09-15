@@ -2,63 +2,56 @@ import { useState, useEffect, createContext, useContext } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import { setAxiosAuth } from '../axiosConfig';
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
+    const logout = () => {
+        localStorage.removeItem('token');
+        setUser(null);
+        setIsAuthenticated(false);
+        setIsLoading(false);
+    };
+
     const setUserFromToken = (decoded) => {
-        setUser({
-            id: decoded.id,
-            username: decoded.username,
-            role: decoded.role,
-        });
+        setUser({ id: decoded.id, username: decoded.username, role: decoded.role });
         setIsAuthenticated(true);
         setIsLoading(false);
     };
 
     useEffect(() => {
         const token = localStorage.getItem('token');
-        if (token) {
-            try {
-                const decoded = jwtDecode(token);
-                const currentTime = Date.now() / 1000;
-                if (decoded.exp && decoded.exp < currentTime) {
-                    logout();
-                } else {
-                    setUserFromToken(decoded);
-                }
-            } catch (error) {
-                console.error('Помилка декодування токена:', error);
-                logout();
-            }
-        } else {
+        if (!token) {
             setIsLoading(false);
+            return;
+        }
+
+        try {
+            const decoded = jwtDecode(token);
+            if (decoded.exp && decoded.exp < Date.now() / 1000) {
+                logout();
+            } else {
+                setUserFromToken(decoded);
+            }
+        } catch (error) {
+            console.error('Unable to decode token:', error);
+            logout();
         }
     }, []);
 
-    useEffect(() => {
-        setAxiosAuth(setUserFromToken);
-    }, []);
+    useEffect(() => setAxiosAuth(setUserFromToken), []);
 
     const login = (token) => {
         localStorage.setItem('token', token);
         try {
-            const decoded = jwtDecode(token);
-            setUserFromToken(decoded);
+            setUserFromToken(jwtDecode(token));
         } catch (error) {
-            console.error('Помилка декодування токена:', error);
+            console.error('Unable to decode token:', error);
             logout();
         }
-    };
-
-    const logout = () => {
-        localStorage.removeItem('token');
-        setUser(null);
-        setIsAuthenticated(false);
-        setIsLoading(false);
     };
 
     return (
@@ -69,5 +62,4 @@ export const AuthProvider = ({ children }) => {
 };
 
 const useAuth = () => useContext(AuthContext);
-
 export default useAuth;

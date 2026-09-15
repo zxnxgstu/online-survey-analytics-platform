@@ -15,7 +15,7 @@ const HomePage = () => {
     useEffect(() => {
         const fetchPopularPolls = async () => {
             try {
-                const response = await axios.get('http://localhost:5000/polls/public', {
+                const response = await axios.get('/polls/public', {
                     params: {
                         sort: 'popular', limit: 4
                     },
@@ -30,10 +30,10 @@ const HomePage = () => {
         fetchPopularPolls();
     }, []);
 
-    return (
-        <div>
-            <Header />
-            <div className="container py-5">
+   return (
+    <div className="min-vh-100 d-flex flex-column">
+        <Header />
+        <div className="container py-5 flex-grow-1">
                 <div className="text-center mb-5">
                     <h1 className="display-4 fw-bold text-primary mb-3">
                         {isAuthenticated ? `Вітаємо, ${user.username}!` : 'Сервіс онлайн-голосувань та опитувань'}
@@ -43,9 +43,15 @@ const HomePage = () => {
                     </p>
                     <div className="d-flex flex-column flex-md-row justify-content-center gap-3">
                         {isAuthenticated ? (
-                            <Link to="/create-poll" className="btn btn-primary btn-lg">
-                                Створити нове опитування
-                            </Link>
+                            (user?.role === 'advanced' || user?.role === 'admin') ? (
+                                <Link to="/create-poll" className="btn btn-primary btn-lg">
+                                    Створити нове опитування
+                                </Link>
+                            ) : (
+                                <Link to="/publicPolls" className="btn btn-primary btn-lg">
+                                    Переглянути публічні опитування
+                                </Link>
+                            )
                         ) : (
                             <>
                                 <Link to="/login" className="btn btn-primary btn-lg">

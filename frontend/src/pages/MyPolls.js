@@ -17,7 +17,7 @@ const MyPolls = () => {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const response = await axios.get('http://localhost:5000/polls/categories');
+                const response = await axios.get('/polls/categories');
                 setCategories(response.data); // Зберігаємо категорії
             } catch (error) {
                 console.error('Помилка завантаження категорій', error);
@@ -30,7 +30,7 @@ const MyPolls = () => {
         const fetchPolls = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const response = await axios.get('http://localhost:5000/polls', {
+                const response = await axios.get('/polls', {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 setPolls(response.data);
@@ -59,14 +59,14 @@ const MyPolls = () => {
         try {
             const token = localStorage.getItem('token');
             await axios.put(
-                `http://localhost:5000/polls/${editPoll.id}`,
+                `/polls/${editPoll.id}`,
                 { title, description, type, categoryId, isPublic },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             setPolls(
                 polls.map((poll) =>
                     poll.id === editPoll.id
-                        ? { ...poll, title, description, type, categoryId, isPublic }
+                        ? { ...poll, title, description, type, category_id: Number(categoryId), is_public: isPublic ? 1 : 0 }
                         : poll
                 )
             );
@@ -92,8 +92,8 @@ const MyPolls = () => {
 
             // Надсилаємо запит на сервер для оновлення статусу опитування
             await axios.put(
-                `http://localhost:5000/polls/${poll.id}`,
-                { ...poll, isActive: newIsActive, isPublic, categoryId: poll.category_id },
+                `/polls/${poll.id}`,
+                { title: poll.title, description: poll.description, type: poll.type, categoryId: poll.category_id, isPublic: Boolean(poll.is_public), isActive: newIsActive },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
@@ -124,7 +124,7 @@ const MyPolls = () => {
 
         try {
             const token = localStorage.getItem('token');
-            await axios.delete(`http://localhost:5000/polls/${pollId}`, {
+            await axios.delete(`/polls/${pollId}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setPolls(polls.filter((poll) => poll.id !== pollId));

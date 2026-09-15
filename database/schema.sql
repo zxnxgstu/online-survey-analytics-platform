@@ -8,6 +8,7 @@
 -- Версія PHP: 7.2.34
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+SET SESSION sql_require_primary_key = 0;
 START TRANSACTION;
 SET time_zone = "+00:00";
 
@@ -279,55 +280,55 @@ ALTER TABLE `votes`
 -- AUTO_INCREMENT для таблиці `categories`
 --
 ALTER TABLE `categories`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, ;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT для таблиці `polls`
 --
 ALTER TABLE `polls`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, ;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT для таблиці `poll_moderation`
 --
 ALTER TABLE `poll_moderation`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, ;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT для таблиці `poll_options`
 --
 ALTER TABLE `poll_options`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, ;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT для таблиці `rating_responses`
 --
 ALTER TABLE `rating_responses`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, ;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT для таблиці `role_upgrade_requests`
 --
 ALTER TABLE `role_upgrade_requests`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, ;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT для таблиці `text_responses`
 --
 ALTER TABLE `text_responses`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, ;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT для таблиці `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, ;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT для таблиці `votes`
 --
 ALTER TABLE `votes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, ;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- Обмеження зовнішнього ключа збережених таблиць
@@ -351,7 +352,6 @@ ALTER TABLE `poll_moderation`
 -- Обмеження зовнішнього ключа таблиці `poll_options`
 --
 ALTER TABLE `poll_options`
-  ADD CONSTRAINT `fk_poll_id` FOREIGN KEY (`poll_id`) REFERENCES `polls` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `poll_options_ibfk_1` FOREIGN KEY (`poll_id`) REFERENCES `polls` (`id`) ON DELETE CASCADE;
 
 --
@@ -382,6 +382,16 @@ ALTER TABLE `votes`
   ADD CONSTRAINT `votes_ibfk_1` FOREIGN KEY (`poll_id`) REFERENCES `polls` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `votes_ibfk_2` FOREIGN KEY (`option_id`) REFERENCES `poll_options` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `votes_ibfk_3` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+
+
+-- Базові категорії для нового розгортання. INSERT IGNORE не перезаписує наявні дані.
+INSERT IGNORE INTO `categories` (`name`) VALUES
+('Освіта'),
+('Технології'),
+('Розваги'),
+('Суспільство'),
+('Інше');
+
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
